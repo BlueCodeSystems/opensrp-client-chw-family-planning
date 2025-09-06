@@ -1,0 +1,226 @@
+// Modern publishing and local Central bundle support for Android library
+// Compatible with Gradle 6.x and AGP 4.x by manually wiring artifacts
+
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
+
+def isTruth = { v ->
+    if (v == null) return false
+    def s = v.toString().trim().toLowerCase()
+    return ['1','true','yes','y','on'].contains(s)
+}
+
+def isCentralBundle = isTruth(project.findProperty('centralBundle'))
+def isCentralRelease = isTruth(project.findProperty('centralRelease'))
+
+// Resolve coordinates and POM settings from gradle.properties
+def pomGroupId = project.findProperty('GROUP') ?: project.group
+def pomArtifactId = project.findProperty('POM_SETTING_ARTIFACT_ID') ?: project.name
+def pomVersion = project.findProperty('VERSION_NAME') ?: project.version
+
+def pomName = project.findProperty('POM_SETTING_NAME') ?: project.name
+def pomDescription = project.findProperty('POM_SETTING_DESCRIPTION') ?: ''
+def pomUrl = project.findProperty('POM_SETTING_URL') ?: ''
+def pomScmUrl = project.findProperty('POM_SETTING_SCM_URL') ?: ''
+def pomScmConnection = project.findProperty('POM_SETTING_SCM_CONNECTION') ?: ''
+def pomScmDevConnection = project.findProperty('POM_SETTING_SCM_DEV_CONNECTION') ?: ''
+def pomLicenseName = project.findProperty('POM_SETTING_LICENCE_NAME') ?: 'The Apache Software License, Version 2.0'
+def pomLicenseUrl = project.findProperty('POM_SETTING_LICENCE_URL') ?: 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+def pomLicenseDist = project.findProperty('POM_SETTING_LICENCE_DIST') ?: 'repo'
+def pomDeveloperId = project.findProperty('POM_SETTING_DEVELOPER_ID') ?: ''
+def pomDeveloperName = project.findProperty('POM_SETTING_DEVELOPER_NAME') ?: ''
+
+// Android sources/javadoc jars (javadoc kept lenient to avoid Android refs breakage)
+def androidExt = project.extensions.findByName('android')
+
+def sourcesJar = tasks.register('sourcesJar', Jar) { t ->
+    t.archiveClassifier.set('sources')
+    if (androidExt != null) {
+        t.from(androidExt.sourceSets.main.java.srcDirs)
+        // Also include Kotlin sources if present
+        def kotlinSrc = file("src/main/kotlin")
+        if (kotlinSrc.exists()) t.from(kotlinSrc)
+    } else {
+        // Fallback for pure Java projects
+        t.from(sourceSets.main.allSource)
+    }
+}
+
+def javadocTask = tasks.register('androidJavadocs', Javadoc) { t ->
+    if (androidExt != null) {
+        // Keep classpath lenient; javadoc may fail on Android refs otherwise
+        def bootClasspath = androidExt.bootClasspath
+        t.source androidExt.sourceSets.main.java.srcDirs
+        t.classpath = files(bootClasspath)
+        t.failOnError = false
+        t.exclude('**/R.java', '**/BuildConfig.java')
+    } else {
+        t.source = sourceSets.main.allJava
+        t.classpath += files(project.sourceSets.main.compileClasspath)
+    }
+}
+
+def javadocJar = tasks.register('javadocJar', Jar) { t ->
+    t.archiveClassifier.set('javadoc')
+    t.from(javadocTask)
+    // If javadoc produced nothing, include a minimal placeholder to satisfy Central
+    t.doFirst {
+        if (!javadocTask.get().destinationDir?.exists()) {
+            def tmp = new File(buildDir, 'tmp/empty-javadoc')
+            tmp.mkdirs()
+            new File(tmp, 'README.txt').text = 'Javadoc generation skipped/empty for Android library.'
+            t.from(tmp)
+        }
+    }
+}
+
+// Path to the release AAR - matches AGP artifact pattern
+def releaseAar = file("${buildDir}/outputs/aar/${project.name}-release.aar")
+
+// Ensure AAR is built before publishing
+tasks.matching { it.name == 'assembleRelease' }.all { pubTask ->
+    // no-op; just ensure task is realized
+}
+
+publishing {
+    publications {
+        create('Maven', MavenPublication) { pub ->
+            pub.groupId = pomGroupId?.toString()
+            pub.artifactId = pomArtifactId?.toString()
+            pub.version = pomVersion?.toString()
+
+            // Attach AAR and aux jars
+            if (releaseAar.exists()) {
+                pub.artifact(releaseAar) { it.builtBy('assembleRelease') }
+            } else {
+                // Lazily evaluate to allow configuration-before-execution
+                pub.artifact("${buildDir}/outputs/aar/${project.name}-release.aar") { it.builtBy('assembleRelease') }
+            }
+            pub.artifact(sourcesJar)
+            pub.artifact(javadocJar)
+
+            pub.pom { p ->
+                p.name.set(pomName)
+                p.description.set(pomDescription)
+                p.url.set(pomUrl)
+                p.licenses { l ->
+                    l.license { lic ->
+                        lic.name.set(pomLicenseName)
+                        lic.url.set(pomLicenseUrl)
+                        lic.distribution.set(pomLicenseDist)
+                    }
+                }
+                p.scm { s ->
+                    s.url.set(pomScmUrl)
+                    s.connection.set(pomScmConnection)
+                    s.developerConnection.set(pomScmDevConnection)
+                }
+                p.developers { d ->
+                    d.developer { dev ->
+                        dev.id.set(pomDeveloperId)
+                        dev.name.set(pomDeveloperName)
+                    }
+                }
+            }
+
+            // Optionally prune SNAPSHOT dependencies when centralRelease=true
+            if (isCentralRelease) {
+                pub.pom.withXml { xml ->
+                    def deps = xml.asNode()?.dependencies?.dependency
+                    deps?.findAll { it.version?.text()?.contains('SNAPSHOT') }?.each { it.replaceNode {} }
+                }
+            }
+        }
+    }
+
+    repositories {
+        if (isCentralBundle) {
+            maven {
+                name = 'CentralBundle'
+                url = uri(file("${buildDir}/central-bundle"))
+            }
+        }
+        if (isCentralRelease) {
+            maven {
+                name = 'Sonatype'
+                def releaseUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+                def snapshotUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+                url = uri(pomVersion?.toString()?.contains('SNAPSHOT') ? snapshotUrl : releaseUrl)
+                credentials {
+                    username = (project.findProperty('sonatypeUsername') ?: System.getenv('ORG_GRADLE_PROJECT_sonatypeUsername'))
+                    password = (project.findProperty('sonatypePassword') ?: System.getenv('ORG_GRADLE_PROJECT_sonatypePassword'))
+                }
+            }
+        }
+    }
+}
+
+// Configure signing for publications
+signing {
+    required { isCentralBundle || isCentralRelease }
+    // Support: -PuseGpgCmd=true and/or in-memory key via -PsigningKey / -PsigningPassword
+    if (isTruth(project.findProperty('useGpgCmd'))) {
+        useGpgCmd()
+        // Optional keyName and passphrase for gpg
+        if (project.hasProperty('signing.gnupg.keyName')) {
+            project.ext.set('signing.keyId', project.property('signing.gnupg.keyName'))
+        }
+        if (project.hasProperty('signing.gnupg.passphrase')) {
+            project.ext.set('signing.password', project.property('signing.gnupg.passphrase'))
+        }
+    } else if (project.hasProperty('signingKey') && project.hasProperty('signingPassword')) {
+        useInMemoryPgpKeys(project.property('signingKey').toString(), project.property('signingPassword').toString())
+    }
+    sign publishing.publications
+}
+
+// Helpers: layout inspection, checksums, zip
+def centralBundleRoot = file("${buildDir}/central-bundle/${pomGroupId?.toString()?.replace('.', '/')}/${pomArtifactId}/${pomVersion}")
+
+tasks.register('printCentralBundleLayout') { t ->
+    t.group = 'publishing'
+    t.doLast {
+        println "Central bundle root: ${centralBundleRoot}"
+        if (!centralBundleRoot.exists()) {
+            println '(bundle not found; run publishMavenPublicationToCentralBundleRepository first)'
+        } else {
+            fileTree(dir: centralBundleRoot).files.sort().each { println it.path.replace(project.rootDir.path + '/', '') }
+        }
+    }
+}
+
+tasks.register('generateCentralBundleChecksums') { t ->
+    t.group = 'publishing'
+    t.dependsOn tasks.matching { it.name == 'publishMavenPublicationToCentralBundleRepository' }
+    t.doLast {
+        if (!centralBundleRoot.exists()) {
+            throw new GradleException("Central bundle not found at ${centralBundleRoot}")
+        }
+        def digest = { algo, bytes ->
+            def md = java.security.MessageDigest.getInstance(algo)
+            md.update(bytes)
+            return md.digest().collect { String.format('%02x', it) }.join()
+        }
+        fileTree(dir: centralBundleRoot, include: ['**/*.*'], exclude: ['**/*.md5', '**/*.sha1', '**/*.sha256', '**/*.sha512']).files.each { f ->
+            def bytes = f.bytes
+            [
+                'md5'   : digest('MD5', bytes),
+                'sha1'  : digest('SHA-1', bytes),
+                'sha256': digest('SHA-256', bytes),
+                'sha512': digest('SHA-512', bytes),
+            ].each { ext, sum ->
+                def out = new File(f.parentFile, f.name + ".${ext}")
+                out.text = sum
+            }
+        }
+        println "Checksums generated under ${centralBundleRoot}"
+    }
+}
+
+tasks.register('zipCentralBundle', Zip) { z ->
+    z.group = 'publishing'
+    z.dependsOn 'generateCentralBundleChecksums'
+    z.from(file("${buildDir}/central-bundle"))
+    z.destinationDirectory.set(file("${buildDir}/distributions"))
+    z.archiveFileName.set("central-bundle-${pomArtifactId}-${pomVersion}.zip")
+}

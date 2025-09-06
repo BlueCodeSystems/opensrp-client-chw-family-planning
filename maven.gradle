@@ -1,3 +1,10 @@
+// Skip legacy Maven plugin on Gradle 7+ where it was removed
+def gradleMajor = (gradle.gradleVersion.tokenize('.')[0] as int)
+if (gradleMajor >= 7) {
+    logger.lifecycle("Skipping legacy maven.gradle on Gradle ${gradle.gradleVersion}; using maven-publish instead.")
+    return
+}
+
 apply plugin: 'maven'
 apply plugin: 'signing'
 
@@ -65,7 +72,8 @@ afterEvaluate { project ->
                 }
             } else {
                 mavenDeployer {
-                    beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                    // Avoid hard type to keep script parseable on newer Gradle
+                    beforeDeployment { deployment -> signing.signPom(deployment) }
 
                     pom.artifactId = POM_SETTING_ARTIFACT_ID
 

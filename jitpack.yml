@@ -1,0 +1,15 @@
+jdk:
+  - openjdk17
+
+install:
+  # Print versions for easier debugging in JitPack logs
+  - ./gradlew --version
+  # Build and publish the library AAR to the local Maven repository (~/.m2)
+  # -x test keeps builds fast and avoids emulator/robolectric needs on JitPack
+  - ./gradlew -PdisablePreDex :opensrp-chw-family-planning:publishToMavenLocal -x test --no-daemon --stacktrace
+
+# Notes:
+# - No signing is performed. Signing in central-publish.gradle is only required
+#   when -PcentralBundle=true or -PcentralRelease=true, which JitPack does not set.
+# - The artifact will be installed to ~/.m2/repository under coordinates derived
+#   from gradle.properties (GROUP, POM_SETTING_ARTIFACT_ID, VERSION_NAME).

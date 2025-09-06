@@ -17,8 +17,8 @@ subprojects {
     group = 'org.smartregister'
 
     // Keep existing SDK values; adjust as needed later
-    ext.androidToolsBuildGradle     = '8.7.2'
-    ext.androidBuildToolsVersion    = '34.0.0'
+    ext.androidToolsBuildGradle     = '8.6.0'
+    ext.androidBuildToolsVersion    = '35.0.0'
     ext.androidMinSdkVersion        = 28
     ext.androidCompileSdkVersion    = 35
     ext.androidTargetSdkVersion     = 35
@@ -27,14 +27,32 @@ subprojects {
     ext.androidAnnotationsAPIVersion = '3.0.1'
 
     repositories {
+        // Prefer local artifacts during development
+        mavenLocal()
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
         // Keep historical repos if still needed by transitive deps
         maven { url "https://repo.maven.apache.org/maven2" }
-        // Legacy artifacts (e.g., CWAC Saferoom) still on JCenter
+        // Legacy artifacts (e.g., CWAC Saferoom) were on JCenter; also try CommonsWare repo
+        maven { url 'https://repo.commonsware.com' }
+        maven { url 'https://s3.amazonaws.com/repo.commonsware.com' }
+        // Fallback only if needed
         jcenter()
-        mavenLocal()
+    }
+
+    // Ensure consistent JVM args for all unit tests (JDK 17+)
+    tasks.withType(Test).configureEach { t ->
+        // Needed by Mockito/ByteBuddy/Objenesis and Java serialization on JDK 17+
+        t.jvmArgs(
+                '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+                '--add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
+                '--add-opens=java.base/java.io=ALL-UNNAMED',
+                '--add-opens=java.base/java.util=ALL-UNNAMED',
+                '--add-exports=java.base/jdk.internal.reflect=ALL-UNNAMED'
+        )
     }
 }
 

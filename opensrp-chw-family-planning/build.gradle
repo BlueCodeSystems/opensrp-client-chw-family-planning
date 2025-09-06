@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.library' version '8.7.2'
+    id 'com.android.library' version '8.6.0'
     id 'jacoco'
     id 'com.github.kt3k.coveralls' version '2.10.2'
 }
@@ -7,12 +7,14 @@ plugins {
 description = 'OpenSRP chw family planning client library'
 
 jacoco {
-    toolVersion = "0.8.0"
+    // Use a JaCoCo version compatible with JDK 17+
+    toolVersion = "0.8.11"
 }
 
 android {
     namespace 'org.smartregister.fp'
     compileSdkVersion androidCompileSdkVersion
+    buildToolsVersion "35.0.0"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -52,25 +54,76 @@ android {
     testOptions {
         unitTests {
             includeAndroidResources = true
+            returnDefaultValues = true
         }
+        unitTests.all {
+            // Open required JDK 17 modules for legacy mocking/serialization frameworks
+            jvmArgs(
+                    '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                    '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+                    '--add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED',
+                    '--add-opens=java.base/java.io=ALL-UNNAMED',
+                    '--add-opens=java.base/java.util=ALL-UNNAMED'
+            )
+        }
+    }
+}
+
+// Align/override transitive deps to mirror sibling libraries and avoid duplicates
+configurations.all {
+    // Prefer newer CWAC Saferoom.X and drop legacy Saferoom
+    exclude group: 'com.commonsware.cwac', module: 'saferoom'
+
+    resolutionStrategy {
+        dependencySubstitution {
+            // Unify P2P Sync to BlueCodeSystems JitPack v0.4.3
+            substitute module('io.github.bluecodesystems:android-p2p-sync') using module('com.github.BlueCodeSystems:android-p2p-sync:v0.4.3')
+
+            // Route any core coordinates to BlueCodeSystems JitPack v6.2.2
+            substitute module('io.github.bluecodesystems:opensrp-client-core') using module('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2')
+            substitute module('org.smartregister:opensrp-client-core') using module('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2')
+
+            // Route legacy native-form to the maintained native-form-new
+            substitute module('org.smartregister:opensrp-client-native-form') using module('io.github.bluecodesystems:opensrp-client-native-form-new:3.1.3')
+
+            // Route configurable-views to BlueCodeSystems JitPack
+            substitute module('org.smartregister:opensrp-client-configurable-views') using module('com.github.BlueCodeSystems:opensrp-client-configurable-views:v2.0.1')
+            substitute module('io.github.bluecodesystems:opensrp-configurable-views') using module('com.github.BlueCodeSystems:opensrp-client-configurable-views:v2.0.1')
+        }
+
+        // Lock the Saferoom.X version used across the graph
+        force 'com.commonsware.cwac:saferoom.x:1.3.0'
     }
 }
 
 // No dependency substitutions required; rely on declared coordinates
 
-tasks.withType(Test) {
-    jacoco.includeNoLocationClasses = true
+tasks.withType(Test).configureEach { t ->
+    // Open JDK 17 internals needed by Mockito/Objenesis/serialization on JDK 17+
+    t.jvmArgs(
+            '--add-opens=java.base/java.lang=ALL-UNNAMED',
+            '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+            '--add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED',
+            '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
+            '--add-opens=java.base/java.io=ALL-UNNAMED',
+            '--add-opens=java.base/java.util=ALL-UNNAMED',
+            '--add-exports=java.base/jdk.internal.reflect=ALL-UNNAMED'
+    )
 }
 
 allprojects {
     repositories {
+        // Prefer local artifacts during development
+        mavenLocal()
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
         maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
-        // Legacy CWAC artifacts resolved via JCenter
+        // Legacy CWAC artifacts; include CommonsWare repo for SafeRoom
+        maven { url 'https://repo.commonsware.com' }
+        maven { url 'https://s3.amazonaws.com/repo.commonsware.com' }
+        // Fallback (deprecated)
         jcenter()
-        mavenLocal()
     }
 }
 
@@ -129,8 +182,10 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.12.0'
     implementation 'de.hdodenhof:circleimageview:3.1.0'
 
-    testImplementation 'org.mockito:mockito-core:2.7.22'
-    androidTestImplementation 'org.mockito:mockito-android:2.7.22'
+    // Mockito (Java 17 compatible)
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    // If tests need static mocking, add mockito-inline here; omitted by default to avoid resolution issues
+    androidTestImplementation 'org.mockito:mockito-android:5.11.0'
 
     testImplementation 'org.robolectric:robolectric:4.11.1'
 
@@ -139,12 +194,8 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.5.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
-    // PowerMock
-    def powerMockVersion = '1.7.1'
-    testImplementation "org.powermock:powermock-module-junit4:$powerMockVersion"
-    testImplementation "org.powermock:powermock-module-junit4-rule:$powerMockVersion"
-    testImplementation "org.powermock:powermock-api-mockito2:$powerMockVersion"
-    testImplementation("org.powermock:powermock-classloading-xstream:$powerMockVersion")
+    // Removed PowerMock (incompatible with Java 17). If tests used PowerMock APIs,
+    // migrate to Mockito's inline static mocking (Mockito.mockStatic) or redesign for DI.
 }
 
 task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest', 'createDebugCoverageReport']) {

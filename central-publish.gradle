@@ -91,7 +91,19 @@ publishing {
 
             // Prefer Android publishing component to wire tasks robustly across AGP versions
             if (androidExt != null) {
-                pub.from components.release
+                def rel = project.components.findByName('release')
+                if (rel != null) {
+                    pub.from(rel)
+                } else {
+                    // Fallback to manual AAR wiring if the component is not exposed
+                    def aarPath = "${buildDir}/outputs/aar/${project.name}-release.aar"
+                    pub.artifact(aarPath) { a ->
+                        def assembleTask = tasks.findByName('assembleRelease')
+                        def bundleTask = tasks.findByName('bundleReleaseAar')
+                        if (assembleTask != null) { a.builtBy(tasks.named('assembleRelease')) }
+                        else if (bundleTask != null) { a.builtBy(tasks.named('bundleReleaseAar')) }
+                    }
+                }
             } else {
                 // Fallback for non-Android projects: rely on default artifacts
             }

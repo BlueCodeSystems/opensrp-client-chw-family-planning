@@ -1,7 +1,7 @@
 package org.smartregister.chw.fp.listener;
 
 import android.app.Activity;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.view.MenuItem;
 
 import org.smartregister.fp.R;

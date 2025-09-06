@@ -1,6 +1,6 @@
 package org.smartregister.chw.fp.presenter;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.Log;
 
 import org.apache.commons.lang3.StringUtils;

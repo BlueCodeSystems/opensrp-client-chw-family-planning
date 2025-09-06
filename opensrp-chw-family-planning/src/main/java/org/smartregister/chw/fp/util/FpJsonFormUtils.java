@@ -64,7 +64,7 @@ public class FpJsonFormUtils extends org.smartregister.util.JsonFormUtils {
         event.setClientDatabaseVersion(FpLibrary.getInstance().getDatabaseVersion());
     }
 
-    private static String locationId(AllSharedPreferences allSharedPreferences) {
+    protected static String locationId(AllSharedPreferences allSharedPreferences) {
         String providerId = allSharedPreferences.fetchRegisteredANM();
         String userLocationId = allSharedPreferences.fetchUserLocalityId(providerId);
         if (StringUtils.isBlank(userLocationId)) {

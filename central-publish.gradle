@@ -89,13 +89,11 @@ publishing {
             pub.artifactId = pomArtifactId?.toString()
             pub.version = pomVersion?.toString()
 
-            // Attach AAR and aux jars. Ensure the publication depends on assembleRelease via TaskProvider
-            def assembleReleaseProvider = tasks.named('assembleRelease')
-            if (releaseAar.exists()) {
-                pub.artifact(releaseAar) { a -> a.builtBy(assembleReleaseProvider) }
+            // Prefer Android publishing component to wire tasks robustly across AGP versions
+            if (androidExt != null) {
+                pub.from components.release
             } else {
-                // Lazily evaluate to allow configuration-before-execution
-                pub.artifact("${buildDir}/outputs/aar/${project.name}-release.aar") { a -> a.builtBy(assembleReleaseProvider) }
+                // Fallback for non-Android projects: rely on default artifacts
             }
             pub.artifact(sourcesJar)
             pub.artifact(javadocJar)

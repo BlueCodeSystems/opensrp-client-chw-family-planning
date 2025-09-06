@@ -1,17 +1,17 @@
 package org.smartregister.chw.fp.contract;
 
-import com.vijay.jsonwizard.domain.Form;
-
 import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
 import org.smartregister.view.contract.BaseRegisterContract;
+
+import java.io.Serializable;
 
 public interface BaseFpRegisterContract {
 
     interface View extends BaseRegisterContract.View {
         Presenter presenter();
 
-        Form getFormConfig();
+        Serializable getFormConfig();
 
         void onFormSaved();
     }

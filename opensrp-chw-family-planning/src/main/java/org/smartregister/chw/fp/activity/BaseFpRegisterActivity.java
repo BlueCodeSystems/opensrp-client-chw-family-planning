@@ -3,12 +3,12 @@ package org.smartregister.chw.fp.activity;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.MenuRes;
-import android.support.design.bottomnavigation.LabelVisibilityMode;
-import android.support.v4.app.Fragment;
+import androidx.annotation.MenuRes;
+import com.google.android.material.bottomnavigation.LabelVisibilityMode;
+import androidx.fragment.app.Fragment;
 
 import com.vijay.jsonwizard.constants.JsonFormConstants;
-import com.vijay.jsonwizard.domain.Form;
+import java.io.Serializable;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -58,7 +58,7 @@ public class BaseFpRegisterActivity extends BaseRegisterActivity implements Base
 
     @Override
     public void startRegistration() {
-        startFormActivity(FORM_NAME, null, null);
+        startFormActivity(FORM_NAME, null, (String) null);
     }
 
     @Override
@@ -72,6 +72,16 @@ public class BaseFpRegisterActivity extends BaseRegisterActivity implements Base
             Timber.e(e);
             displayToast(getString(R.string.error_unable_to_start_form));
         }
+    }
+
+    @Override
+    public void startFormActivity(String formName, String entityId, java.util.Map<String, String> metaData) {
+        // Fallback mapping: if metadata carries a 'payloadType', pass it through; else null
+        String payloadType = null;
+        if (metaData != null) {
+            payloadType = metaData.get("payloadType");
+        }
+        startFormActivity(formName, entityId, payloadType);
     }
 
     public JSONObject getFpFormForEdit() {
@@ -91,7 +101,7 @@ public class BaseFpRegisterActivity extends BaseRegisterActivity implements Base
     }
 
     @Override
-    public Form getFormConfig() {
+    public Serializable getFormConfig() {
         return null;
     }
 
@@ -127,7 +137,7 @@ public class BaseFpRegisterActivity extends BaseRegisterActivity implements Base
         if (bottomNavigationView != null) {
             bottomNavigationView.setLabelVisibilityMode(LabelVisibilityMode.LABEL_VISIBILITY_LABELED);
             bottomNavigationView.getMenu().removeItem(org.smartregister.R.id.action_clients);
-            bottomNavigationView.getMenu().removeItem(R.id.action_register);
+            bottomNavigationView.getMenu().removeItem(org.smartregister.R.id.action_register);
             bottomNavigationView.getMenu().removeItem(org.smartregister.R.id.action_search);
             bottomNavigationView.getMenu().removeItem(org.smartregister.R.id.action_library);
             bottomNavigationView.inflateMenu(getMenuResource());

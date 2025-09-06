@@ -67,6 +67,11 @@ android {
             )
         }
     }
+
+    // Expose the release variant for publishing (AGP 7+/8)
+    publishing {
+        singleVariant("release")
+    }
 }
 
 // Align/override transitive deps to mirror sibling libraries and avoid duplicates

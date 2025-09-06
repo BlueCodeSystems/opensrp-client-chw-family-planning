@@ -10,6 +10,12 @@ configure(allprojects) { project ->
     group = GROUP
 }
 
+// Override group for BlueCode publishing when requested (e.g., on JitPack)
+def useBlueCodeGroup = (System.getenv('JITPACK') != null) || project.hasProperty('useBlueCodeGroup')
+if (useBlueCodeGroup) {
+    allprojects { it.group = 'io.github.bluecodesystems' }
+}
+
 project.ext.preDexLibs = !project.hasProperty('disablePreDex')
 
 subprojects {

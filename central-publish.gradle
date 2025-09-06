@@ -13,8 +13,8 @@ def isTruth = { v ->
 def isCentralBundle = isTruth(project.findProperty('centralBundle'))
 def isCentralRelease = isTruth(project.findProperty('centralRelease'))
 
-// Resolve coordinates and POM settings from gradle.properties
-def pomGroupId = project.findProperty('GROUP') ?: project.group
+// Resolve coordinates and POM settings; prefer the project's group if explicitly set
+def pomGroupId = (project.group ?: project.findProperty('GROUP'))
 def pomArtifactId = project.findProperty('POM_SETTING_ARTIFACT_ID') ?: project.name
 def pomVersion = project.findProperty('VERSION_NAME') ?: project.version
 

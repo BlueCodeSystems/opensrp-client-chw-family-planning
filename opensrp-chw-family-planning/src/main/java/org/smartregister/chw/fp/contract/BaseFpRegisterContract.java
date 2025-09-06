@@ -1,6 +1,6 @@
 package org.smartregister.chw.fp.contract;
 
-import org.jetbrains.annotations.Nullable;
+import androidx.annotation.Nullable;
 import org.json.JSONObject;
 import org.smartregister.view.contract.BaseRegisterContract;
 

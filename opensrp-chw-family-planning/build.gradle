@@ -187,6 +187,9 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.12.0'
     implementation 'de.hdodenhof:circleimageview:3.1.0'
 
+    // AndroidX annotations used in contracts
+    implementation 'androidx.annotation:annotation:1.9.0'
+
     // Mockito (Java 17 compatible)
     testImplementation 'org.mockito:mockito-core:5.11.0'
     // If tests need static mocking, add mockito-inline here; omitted by default to avoid resolution issues

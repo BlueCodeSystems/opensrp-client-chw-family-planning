@@ -1,13 +1,19 @@
 package org.smartregister.chw.fp.activity;
 
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
+import org.mockito.Mockito;
 
 public class BaseFpRegisterActivityTest {
 
-    @Mock
-    private BaseFpRegisterActivity baseFpRegisterActivity = new BaseFpRegisterActivity();
+    private BaseFpRegisterActivity baseFpRegisterActivity;
+
+    @Before
+    public void setUp() {
+        // Use a Mockito mock to avoid Android framework initialization
+        baseFpRegisterActivity = Mockito.mock(BaseFpRegisterActivity.class);
+    }
 
     @Test
     public void assertNotNull() {
@@ -18,5 +24,4 @@ public class BaseFpRegisterActivityTest {
     public void testFormConfig() {
         Assert.assertNull(baseFpRegisterActivity.getFormConfig());
     }
-
 }

@@ -6,9 +6,9 @@ import android.content.Intent;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.support.v4.view.ViewPager;
-import android.support.v7.app.ActionBar;
-import android.support.v7.widget.Toolbar;
+import androidx.viewpager.widget.ViewPager;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.widget.Toolbar;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
@@ -84,7 +84,7 @@ public class BaseFpProfileActivity extends BaseProfileActivity implements BaseFp
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);
             Drawable upArrow = getResources().getDrawable(R.drawable.ic_arrow_back_white_24dp);
-            upArrow.setColorFilter(getResources().getColor(R.color.text_blue), PorterDuff.Mode.SRC_ATOP);
+            upArrow.setColorFilter(getResources().getColor(org.smartregister.R.color.text_blue), PorterDuff.Mode.SRC_ATOP);
             actionBar.setHomeAsUpIndicator(upArrow);
         }
 
@@ -176,7 +176,7 @@ public class BaseFpProfileActivity extends BaseProfileActivity implements BaseFp
     @Override
     public void onClick(View view) {
         int id = view.getId();
-        if (id == R.id.title_layout) {
+        if (id == org.smartregister.R.id.title_layout) {
             onBackPressed();
         } else if (id == R.id.rl_last_visit_layout) {
             this.openMedicalHistory();

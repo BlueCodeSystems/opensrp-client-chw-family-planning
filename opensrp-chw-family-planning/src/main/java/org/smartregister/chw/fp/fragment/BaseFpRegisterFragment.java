@@ -46,8 +46,9 @@ public class BaseFpRegisterFragment extends BaseRegisterFragment implements Base
         searchBarLayout.setBackgroundResource(R.color.customAppThemeBlue);
 
         if (getSearchView() != null) {
-            getSearchView().setBackgroundResource(R.color.white);
-            getSearchView().setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_action_search, 0, 0, 0);
+            getSearchView().setBackgroundResource(org.smartregister.R.color.white);
+            // Use platform search icon to avoid missing drawable dependency
+            getSearchView().setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_search, 0, 0, 0);
         }
 
         // Update sort filter
@@ -62,7 +63,7 @@ public class BaseFpRegisterFragment extends BaseRegisterFragment implements Base
             logo.setVisibility(android.view.View.GONE);
         }
 
-        CustomFontTextView titleView = view.findViewById(R.id.txt_title_label);
+        CustomFontTextView titleView = view.findViewById(org.smartregister.R.id.txt_title_label);
         if (titleView != null) {
             titleView.setVisibility(android.view.View.VISIBLE);
             titleView.setText(getString(R.string.family_planning));

@@ -89,12 +89,13 @@ publishing {
             pub.artifactId = pomArtifactId?.toString()
             pub.version = pomVersion?.toString()
 
-            // Attach AAR and aux jars
+            // Attach AAR and aux jars. Ensure the publication depends on assembleRelease via TaskProvider
+            def assembleReleaseProvider = tasks.named('assembleRelease')
             if (releaseAar.exists()) {
-                pub.artifact(releaseAar) { it.builtBy('assembleRelease') }
+                pub.artifact(releaseAar) { a -> a.builtBy(assembleReleaseProvider) }
             } else {
                 // Lazily evaluate to allow configuration-before-execution
-                pub.artifact("${buildDir}/outputs/aar/${project.name}-release.aar") { it.builtBy('assembleRelease') }
+                pub.artifact("${buildDir}/outputs/aar/${project.name}-release.aar") { a -> a.builtBy(assembleReleaseProvider) }
             }
             pub.artifact(sourcesJar)
             pub.artifact(javadocJar)

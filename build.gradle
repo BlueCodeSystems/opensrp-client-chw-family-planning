@@ -10,17 +10,9 @@ configure(allprojects) { project ->
     group = GROUP
 }
 
-// Override group for BlueCode publishing when requested (e.g., on JitPack)
-def useBlueCodeGroup = (System.getenv('JITPACK') != null) || project.hasProperty('useBlueCodeGroup')
-if (useBlueCodeGroup) {
-    allprojects { it.group = 'io.github.bluecodesystems' }
-}
-
 project.ext.preDexLibs = !project.hasProperty('disablePreDex')
 
 subprojects {
-
-    group = 'org.smartregister'
 
     // Keep existing SDK values; adjust as needed later
     ext.androidToolsBuildGradle     = '8.6.0'

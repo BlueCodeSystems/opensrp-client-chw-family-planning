@@ -6,7 +6,7 @@ install:
   - ./gradlew --version
   # Build and publish the library AAR to the local Maven repository (~/.m2)
   # -x test keeps builds fast and avoids emulator/robolectric needs on JitPack
-  - ./gradlew -PdisablePreDex -PuseBlueCodeGroup=true :opensrp-chw-family-planning:publishToMavenLocal -x test --no-daemon --stacktrace
+  - ./gradlew -PdisablePreDex :opensrp-chw-family-planning:publishToMavenLocal -x test --no-daemon --stacktrace
 
 # Notes:
 # - No signing is performed. Signing in central-publish.gradle is only required

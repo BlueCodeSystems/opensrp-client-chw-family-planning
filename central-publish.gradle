@@ -48,15 +48,31 @@ def sourcesJar = tasks.register('sourcesJar', Jar) { t ->
 
 def javadocTask = tasks.register('androidJavadocs', Javadoc) { t ->
     if (androidExt != null) {
-        // Keep classpath lenient; javadoc may fail on Android refs otherwise
+        // Point Javadoc to Android + release compile classpath so external types resolve
         def bootClasspath = androidExt.bootClasspath
         t.source androidExt.sourceSets.main.java.srcDirs
-        t.classpath = files(bootClasspath)
+
+        // Collect probable compile classpaths for the release variant
+        def relCp = project.configurations.findByName('releaseCompileClasspath')
+        def mainCp = project.configurations.findByName('compileClasspath')
+
+        t.classpath = files(bootClasspath) + (relCp ? files(relCp) : files()) + (mainCp ? files(mainCp) : files())
+
+        // Be tolerant: don't fail build on Javadoc errors (Android refs, missing sources, etc.)
         t.failOnError = false
         t.exclude('**/R.java', '**/BuildConfig.java')
+
+        // Soften doclint on newer JDKs to avoid noisy failures
+        if (t.options.respondsTo('addStringOption')) {
+            t.options.addStringOption('Xdoclint:none', '-quiet')
+        }
+        if (t.options.respondsTo('addBooleanOption')) {
+            try { t.options.addBooleanOption('html5', true) } catch (ignored) {}
+        }
     } else {
         t.source = sourceSets.main.allJava
         t.classpath += files(project.sourceSets.main.compileClasspath)
+        t.failOnError = false
     }
 }
 
@@ -83,67 +99,6 @@ tasks.matching { it.name == 'assembleRelease' }.all { pubTask ->
 }
 
 publishing {
-    publications {
-        create('Maven', MavenPublication) { pub ->
-            pub.groupId = pomGroupId?.toString()
-            pub.artifactId = pomArtifactId?.toString()
-            pub.version = pomVersion?.toString()
-
-            // Prefer Android publishing component to wire tasks robustly across AGP versions
-            if (androidExt != null) {
-                def rel = project.components.findByName('release')
-                if (rel != null) {
-                    pub.from(rel)
-                } else {
-                    // Fallback to manual AAR wiring if the component is not exposed
-                    def aarPath = "${buildDir}/outputs/aar/${project.name}-release.aar"
-                    pub.artifact(aarPath) { a ->
-                        def assembleTask = tasks.findByName('assembleRelease')
-                        def bundleTask = tasks.findByName('bundleReleaseAar')
-                        if (assembleTask != null) { a.builtBy(tasks.named('assembleRelease')) }
-                        else if (bundleTask != null) { a.builtBy(tasks.named('bundleReleaseAar')) }
-                    }
-                }
-            } else {
-                // Fallback for non-Android projects: rely on default artifacts
-            }
-            pub.artifact(sourcesJar)
-            pub.artifact(javadocJar)
-
-            pub.pom { p ->
-                p.name.set(pomName)
-                p.description.set(pomDescription)
-                p.url.set(pomUrl)
-                p.licenses { l ->
-                    l.license { lic ->
-                        lic.name.set(pomLicenseName)
-                        lic.url.set(pomLicenseUrl)
-                        lic.distribution.set(pomLicenseDist)
-                    }
-                }
-                p.scm { s ->
-                    s.url.set(pomScmUrl)
-                    s.connection.set(pomScmConnection)
-                    s.developerConnection.set(pomScmDevConnection)
-                }
-                p.developers { d ->
-                    d.developer { dev ->
-                        dev.id.set(pomDeveloperId)
-                        dev.name.set(pomDeveloperName)
-                    }
-                }
-            }
-
-            // Optionally prune SNAPSHOT dependencies when centralRelease=true
-            if (isCentralRelease) {
-                pub.pom.withXml { xml ->
-                    def deps = xml.asNode()?.dependencies?.dependency
-                    deps?.findAll { it.version?.text()?.contains('SNAPSHOT') }?.each { it.replaceNode {} }
-                }
-            }
-        }
-    }
-
     repositories {
         if (isCentralBundle) {
             maven {
@@ -160,6 +115,66 @@ publishing {
                 credentials {
                     username = (project.findProperty('sonatypeUsername') ?: System.getenv('ORG_GRADLE_PROJECT_sonatypeUsername'))
                     password = (project.findProperty('sonatypePassword') ?: System.getenv('ORG_GRADLE_PROJECT_sonatypePassword'))
+                }
+            }
+        }
+    }
+}
+
+// Configure publications after evaluation so Android components are available
+afterEvaluate {
+    publishing {
+        publications {
+            create('Maven', MavenPublication) { pub ->
+                pub.groupId = pomGroupId?.toString()
+                pub.artifactId = pomArtifactId?.toString()
+                pub.version = pomVersion?.toString()
+
+                if (project.plugins.hasPlugin('com.android.library')) {
+                    def rel = project.components.findByName('release')
+                    if (rel != null) {
+                        pub.from(rel)
+                    } else {
+                        // Fallback to manual AAR wiring with a reliable task dependency
+                        def aarPath = "${buildDir}/outputs/aar/${project.name}-release.aar"
+                        pub.artifact(aarPath) { a ->
+                            a.builtBy(tasks.named('assembleRelease'))
+                        }
+                    }
+                }
+
+                pub.artifact(sourcesJar)
+                pub.artifact(javadocJar)
+
+                pub.pom { p ->
+                    p.name.set(pomName)
+                    p.description.set(pomDescription)
+                    p.url.set(pomUrl)
+                    p.licenses { l ->
+                        l.license { lic ->
+                            lic.name.set(pomLicenseName)
+                            lic.url.set(pomLicenseUrl)
+                            lic.distribution.set(pomLicenseDist)
+                        }
+                    }
+                    p.scm { s ->
+                        s.url.set(pomScmUrl)
+                        s.connection.set(pomScmConnection)
+                        s.developerConnection.set(pomScmDevConnection)
+                    }
+                    p.developers { d ->
+                        d.developer { dev ->
+                            dev.id.set(pomDeveloperId)
+                            dev.name.set(pomDeveloperName)
+                        }
+                    }
+                }
+
+                if (isCentralRelease) {
+                    pub.pom.withXml { xml ->
+                        def deps = xml.asNode()?.dependencies?.dependency
+                        deps?.findAll { it.version?.text()?.contains('SNAPSHOT') }?.each { it.replaceNode {} }
+                    }
                 }
             }
         }

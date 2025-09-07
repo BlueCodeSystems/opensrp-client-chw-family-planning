@@ -4,6 +4,23 @@ jdk:
 install:
   # Print versions for easier debugging in JitPack logs
   - ./gradlew --version
+  # Ensure required Android SDK components are installed (platform 35 + build tools 35.0.0)
+  - |
+    set -e
+    if command -v sdkmanager >/dev/null 2>&1; then
+      SM=sdkmanager
+    elif [ -x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+      SM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+    elif [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+      SM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+    else
+      echo "sdkmanager not found; proceeding without SDK installation"
+      SM=""
+    fi
+    if [ -n "$SM" ]; then
+      yes | "$SM" --licenses || true
+      yes | "$SM" "platforms;android-35" "build-tools;35.0.0" || true
+    fi
   # Build and publish the library AAR to the local Maven repository (~/.m2)
   # -x test keeps builds fast and avoids emulator/robolectric needs on JitPack
   - ./gradlew -PdisablePreDex :opensrp-chw-family-planning:publishToMavenLocal -x test --no-daemon --stacktrace

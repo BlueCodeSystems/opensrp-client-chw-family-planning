@@ -14,7 +14,7 @@ jacoco {
 android {
     namespace 'org.smartregister.fp'
     compileSdkVersion androidCompileSdkVersion
-    buildToolsVersion "35.0.0"
+    buildToolsVersion androidBuildToolsVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -84,9 +84,7 @@ configurations.all {
             // Unify P2P Sync to BlueCodeSystems JitPack v0.4.3
             substitute module('io.github.bluecodesystems:android-p2p-sync') using module('com.github.BlueCodeSystems:android-p2p-sync:v0.4.3')
 
-            // Route any core coordinates to BlueCodeSystems JitPack v6.2.2
-            substitute module('io.github.bluecodesystems:opensrp-client-core') using module('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2')
-            substitute module('org.smartregister:opensrp-client-core') using module('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2')
+            // No core substitution; rely on declared org.smartregister coordinates compatible with this library
 
             // Route legacy native-form to the maintained native-form-new
             substitute module('org.smartregister:opensrp-client-native-form') using module('io.github.bluecodesystems:opensrp-client-native-form-new:3.1.3')
@@ -94,6 +92,10 @@ configurations.all {
             // Route configurable-views to BlueCodeSystems JitPack
             substitute module('org.smartregister:opensrp-client-configurable-views') using module('com.github.BlueCodeSystems:opensrp-client-configurable-views:v2.0.1')
             substitute module('io.github.bluecodesystems:opensrp-configurable-views') using module('com.github.BlueCodeSystems:opensrp-client-configurable-views:v2.0.1')
+
+            // Unify core coordinates to BlueCodeSystems JitPack v6.2.2 to match siblings
+            substitute module('org.smartregister:opensrp-client-core') using module('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2')
+            substitute module('io.github.bluecodesystems:opensrp-client-core') using module('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2')
         }
 
         // Lock the Saferoom.X version used across the graph
@@ -133,7 +135,7 @@ allprojects {
 }
 
 dependencies {
-    // Align with sibling libraries (prefer JitPack where used across repos)
+    // Depend on BlueCodeSystems OpenSRP core (JitPack) to align with siblings
     implementation('com.github.BlueCodeSystems:opensrp-client-core:v6.2.2') {
         transitive = true
         exclude group: 'com.github.bmelnychuk', module: 'atv'
